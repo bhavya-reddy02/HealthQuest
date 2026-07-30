@@ -4,12 +4,14 @@ from datetime import date
 from .gamification import level_from_xp, daily_quests, build_stats, bmi
 from .game_data import BADGES, FOCUS_AREAS
 from .learn_data import TOTAL_MODULES
+from .recommendations import get_recommendations
 from . import models
 
 
 def serialize_profile(profile: "models.HealthProfile | None") -> dict | None:
     if profile is None:
         return None
+    recs = get_recommendations(profile.height_cm, profile.weight_kg, profile.conditions or [])
     return {
         "name": profile.name,
         "age": profile.age,
@@ -19,7 +21,11 @@ def serialize_profile(profile: "models.HealthProfile | None") -> dict | None:
         "goal": profile.goal,
         "activity": profile.activity,
         "focus": profile.focus or [],
-        "bmi": bmi(profile.height_cm, profile.weight_kg),
+        "conditions": profile.conditions or [],
+        "bmi": recs["bmi"],
+        "bmiCategory": recs["category"],
+        "bmiColor": recs["color"],
+        "recommendations": recs["tips"],
     }
 
 

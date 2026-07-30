@@ -53,6 +53,7 @@ class HealthProfile(Base):
     goal: Mapped[str] = mapped_column(String(20), default="active")
     activity: Mapped[str] = mapped_column(String(20), default="mid")
     focus: Mapped[list] = mapped_column(JSON, default=list)  # e.g. ["hydration","movement"]
+    conditions: Mapped[list] = mapped_column(JSON, default=list)  # e.g. ["diabetes","hypertension"]
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

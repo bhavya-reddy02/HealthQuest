@@ -22,6 +22,20 @@ async def lifespan(app: FastAPI):
     for _ in range(15):
         try:
             Base.metadata.create_all(bind=engine)
+            
+            # Safe SQL migration to add 'conditions' column if it is missing
+            with engine.connect() as conn:
+                from sqlalchemy import text
+                try:
+                    conn.execute(text("ALTER TABLE health_profiles ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT '[]'::jsonb;"))
+                    conn.commit()
+                except Exception:
+                    try:
+                        conn.execute(text("ALTER TABLE health_profiles ADD COLUMN IF NOT EXISTS conditions TEXT DEFAULT '[]';"))
+                        conn.commit()
+                    except Exception:
+                        pass
+            
             last_err = None
             break
         except Exception as e:  # pragma: no cover

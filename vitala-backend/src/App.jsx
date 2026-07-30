@@ -144,8 +144,32 @@ function Auth({ onDone }) {
   async function submit() {
     setErr("");
     if (!f.username.trim()) return setErr("Pick a username to continue.");
-    if (f.password.length < 4) return setErr("Use a password of at least 4 characters.");
-    if (mode === "signup" && !/.+@.+\..+/.test(f.email)) return setErr("Enter a valid email address.");
+    
+    if (mode === "signup") {
+      if (f.password.length < 8) {
+        return setErr("Password must be at least 8 characters long.");
+      }
+      if (!/[A-Z]/.test(f.password)) {
+        return setErr("Password must contain at least one uppercase letter.");
+      }
+      if (!/[a-z]/.test(f.password)) {
+        return setErr("Password must contain at least one lowercase letter.");
+      }
+      if (!/\d/.test(f.password)) {
+        return setErr("Password must contain at least one digit.");
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(f.password)) {
+        return setErr("Password must contain at least one special character.");
+      }
+      if (!/.+@.+\..+/.test(f.email)) {
+        return setErr("Enter a valid email address.");
+      }
+    } else {
+      if (f.password.length < 4) {
+        return setErr("Use a password of at least 4 characters.");
+      }
+    }
+
     setBusy(true);
     try {
       const path = mode === "signup" ? "/auth/signup" : "/auth/login";
@@ -188,6 +212,11 @@ function Auth({ onDone }) {
           )}
           <div className="field"><label>Password</label>
             <input value={f.password} onChange={set("password")} placeholder="••••••••" type="password" onKeyDown={(e) => e.key === "Enter" && submit()} />
+            {mode === "signup" && (
+              <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 5, lineHeight: 1.4 }}>
+                Requires 8+ chars: 1 uppercase, 1 lowercase, 1 digit, 1 special character (e.g. !@#$).
+              </div>
+            )}
           </div>
           {err && <div className="err">{err}</div>}
           <button className="btn btn-primary" style={{ width: "100%" }} onClick={submit} disabled={busy}>
@@ -202,31 +231,87 @@ function Auth({ onDone }) {
   );
 }
 
+const CONDITION_OPTIONS = [
+  { id: "hypertension", label: "High Blood Pressure (BP)", emoji: "🩺" },
+  { id: "diabetes", label: "Diabetes (Sugar)", emoji: "🍬" },
+  { id: "heart_disease", label: "Heart Disease", emoji: "🫀" },
+  { id: "thyroid", label: "Thyroid Issue", emoji: "🦋" },
+  { id: "asthma", label: "Asthma / Breathing", emoji: "🫁" },
+];
+
 /* ------------------------------------------------------------------ onboarding */
 function Onboarding({ onDone }) {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [p, setP] = useState({ name: "", age: "", sex: "", height_cm: "", weight_kg: "", goal: "active", activity: "mid", focus: ["hydration", "movement"] });
+  const [p, setP] = useState({ name: "", age: "", sex: "", height_cm: "", weight_kg: "", conditions: ["none"], goal: "active", activity: "mid", focus: ["hydration", "movement"] });
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
   const toggleFocus = (id) => setP((s) => ({ ...s, focus: s.focus.includes(id) ? s.focus.filter((x) => x !== id) : [...s.focus, id] }));
 
+  const toggleCondition = (id) => {
+    setP((s) => {
+      const conditions = s.conditions || [];
+      let next;
+      if (id === "none") {
+        next = ["none"];
+      } else {
+        const filtered = conditions.filter((x) => x !== "none");
+        next = filtered.includes(id)
+          ? filtered.filter((x) => x !== id)
+          : [...filtered, id];
+        if (next.length === 0) {
+          next = ["none"];
+        }
+      }
+      return { ...s, conditions: next };
+    });
+  };
+
+  const getInputError = (key) => {
+    const val = p[key];
+    if (val === "" || val === undefined || val === null) return null;
+    const num = parseFloat(val);
+    if (isNaN(num) || num <= 0) {
+      return "Invalid";
+    }
+    return null;
+  };
+
   const bmi = useMemo(() => {
     const h = parseFloat(p.height_cm) / 100, w = parseFloat(p.weight_kg);
-    if (!h || !w) return null; return +(w / (h * h)).toFixed(1);
+    if (!h || !w || isNaN(h) || isNaN(w) || h <= 0 || w <= 0) return null; return +(w / (h * h)).toFixed(1);
   }, [p.height_cm, p.weight_kg]);
   const band = bmi == null ? null : bmi < 18.5 ? ["Underweight", "var(--azure)"] : bmi < 25 ? ["Healthy range", "var(--vital)"] : bmi < 30 ? ["Overweight", "var(--gold)"] : ["Higher range", "var(--flame)"];
 
-  const canNext = step === 0 ? (p.name.trim() && p.age && p.height_cm && p.weight_kg) : step === 1 ? p.goal : p.focus.length > 0;
+  const ageNum = parseInt(p.age, 10);
+  const heightNum = parseFloat(p.height_cm);
+  const weightNum = parseFloat(p.weight_kg);
+  const isStep0Valid = p.name.trim() && 
+                       p.age !== "" && !isNaN(ageNum) && ageNum > 0 && 
+                       p.height_cm !== "" && !isNaN(heightNum) && heightNum > 0 && 
+                       p.weight_kg !== "" && !isNaN(weightNum) && weightNum > 0;
+
+  const canNext = step === 0 
+    ? isStep0Valid 
+    : step === 1 
+      ? (p.conditions && p.conditions.length > 0)
+      : step === 2 
+        ? p.goal 
+        : p.focus.length > 0;
 
   async function finish() {
     setBusy(true); setErr("");
     try {
       await api("/profile", { method: "PUT", body: {
-        name: p.name.trim(), age: p.age ? parseInt(p.age) : null, sex: p.sex,
+        name: p.name.trim(), 
+        age: p.age ? parseInt(p.age, 10) : null, 
+        sex: p.sex,
         height_cm: p.height_cm ? parseFloat(p.height_cm) : null,
         weight_kg: p.weight_kg ? parseFloat(p.weight_kg) : null,
-        goal: p.goal, activity: p.activity, focus: p.focus,
+        goal: p.goal, 
+        activity: p.activity, 
+        focus: p.focus,
+        conditions: p.conditions.filter((x) => x !== "none"),
       } });
       await onDone();
     } catch (e) {
@@ -238,23 +323,36 @@ function Onboarding({ onDone }) {
     <div className="authwrap">
       <div className="authcard" style={{ maxWidth: 520 }}>
         <div style={{ display: "flex", gap: 7, marginBottom: 22, justifyContent: "center" }}>
-          {[0, 1, 2].map((i) => <div key={i} style={{ width: i === step ? 28 : 8, height: 8, borderRadius: 99, background: i <= step ? "var(--vital)" : "var(--ink-4)", transition: ".3s" }} />)}
+          {[0, 1, 2, 3].map((i) => <div key={i} style={{ width: i === step ? 28 : 8, height: 8, borderRadius: 99, background: i <= step ? "var(--vital)" : "var(--ink-4)", transition: ".3s" }} />)}
         </div>
         <div className="card pad">
           {step === 0 && (<>
-            <p className="eyebrow">Your health profile · 1 of 3</p>
+            <p className="eyebrow">Your health profile · 1 of 4</p>
             <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>The basics</h2>
             <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 22px" }}>These personalise your quests and are saved to your account.</p>
             <div className="field"><label>Preferred name</label><input value={p.name} onChange={(e) => set("name", e.target.value)} placeholder="What should we call you?" /></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div className="field"><label>Age</label><input type="number" value={p.age} onChange={(e) => set("age", e.target.value)} placeholder="years" /></div>
-              <div className="field"><label>Sex</label>
+              <div className="field">
+                <label>Age</label>
+                <input type="number" value={p.age} onChange={(e) => set("age", e.target.value)} placeholder="years" />
+                {getInputError("age") && <span style={{ color: "var(--flame)", fontSize: 11, marginTop: 4, display: "block" }}>{getInputError("age")}</span>}
+              </div>
+              <div className="field">
+                <label>Sex</label>
                 <select value={p.sex} onChange={(e) => set("sex", e.target.value)}>
                   <option value="">Prefer not to say</option><option>Female</option><option>Male</option><option>Other</option>
                 </select>
               </div>
-              <div className="field"><label>Height (cm)</label><input type="number" value={p.height_cm} onChange={(e) => set("height_cm", e.target.value)} placeholder="cm" /></div>
-              <div className="field"><label>Weight (kg)</label><input type="number" value={p.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} placeholder="kg" /></div>
+              <div className="field">
+                <label>Height (cm)</label>
+                <input type="number" value={p.height_cm} onChange={(e) => set("height_cm", e.target.value)} placeholder="cm" />
+                {getInputError("height_cm") && <span style={{ color: "var(--flame)", fontSize: 11, marginTop: 4, display: "block" }}>{getInputError("height_cm")}</span>}
+              </div>
+              <div className="field">
+                <label>Weight (kg)</label>
+                <input type="number" value={p.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} placeholder="kg" />
+                {getInputError("weight_kg") && <span style={{ color: "var(--flame)", fontSize: 11, marginTop: 4, display: "block" }}>{getInputError("weight_kg")}</span>}
+              </div>
             </div>
             {bmi && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--ink)", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 15px", marginTop: 4 }}>
@@ -264,7 +362,27 @@ function Onboarding({ onDone }) {
             )}
           </>)}
           {step === 1 && (<>
-            <p className="eyebrow">Your health profile · 2 of 3</p>
+            <p className="eyebrow">Your health profile · 2 of 4</p>
+            <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>Do you suffer from any of these?</h2>
+            <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 22px" }}>Select all that apply. This helps us provide custom medical guidelines and tips.</p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {CONDITION_OPTIONS.map((c) => {
+                const isSelected = p.conditions.includes(c.id);
+                return (
+                  <button key={c.id} onClick={() => toggleCondition(c.id)} className="chip"
+                    style={{ justifyContent: "flex-start", padding: "14px 16px", ...(isSelected ? { background: "rgba(11,165,114,.12)", borderColor: "var(--vital)", color: "var(--vital)" } : {}) }}>
+                    <span style={{ fontSize: 20 }}>{c.emoji}</span><span style={{ fontWeight: 600 }}>{c.label}</span>
+                  </button>
+                );
+              })}
+              <button onClick={() => toggleCondition("none")} className="chip"
+                style={{ justifyContent: "flex-start", padding: "14px 16px", ...(p.conditions.includes("none") ? { background: "rgba(59,142,240,.12)", borderColor: "var(--azure)", color: "var(--azure)" } : {}) }}>
+                <span style={{ fontSize: 20 }}>🟢</span><span style={{ fontWeight: 600 }}>None of the above</span>
+              </button>
+            </div>
+          </>)}
+          {step === 2 && (<>
+            <p className="eyebrow">Your health profile · 3 of 4</p>
             <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>What's your main goal?</h2>
             <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 22px" }}>Pick the one that matters most right now.</p>
             <div style={{ display: "grid", gap: 10 }}>
@@ -282,8 +400,8 @@ function Onboarding({ onDone }) {
               </select>
             </div>
           </>)}
-          {step === 2 && (<>
-            <p className="eyebrow">Your health profile · 3 of 3</p>
+          {step === 3 && (<>
+            <p className="eyebrow">Your health profile · 4 of 4</p>
             <h2 className="display" style={{ fontSize: 22, margin: "0 0 4px" }}>Choose your focus areas</h2>
             <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 22px" }}>Your daily quests lean toward what you pick. Choose two or three.</p>
             <div className="chips">
@@ -298,8 +416,8 @@ function Onboarding({ onDone }) {
           <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
             {step > 0 && <button className="btn btn-ghost" onClick={() => setStep((s) => s - 1)}>Back</button>}
             <button className="btn btn-primary" style={{ flex: 1 }} disabled={!canNext || busy}
-              onClick={() => { if (step < 2) setStep((s) => s + 1); else finish(); }}>
-              {busy ? <span className="spin" /> : step < 2 ? "Continue" : "Start my journey"}
+              onClick={() => { if (step < 3) setStep((s) => s + 1); else finish(); }}>
+              {busy ? <span className="spin" /> : step < 3 ? "Continue" : "Start my journey"}
             </button>
           </div>
         </div>
@@ -352,6 +470,26 @@ function Dashboard({ s, busyId, onComplete, go }) {
         </div>
       </div>
     </div>
+
+    {s.profile?.recommendations && s.profile.recommendations.length > 0 && (
+      <div className="card pad" style={{ marginTop: 18, borderLeft: `4px solid ${s.profile.bmiColor || "var(--vital)"}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <p className="eyebrow" style={{ margin: 0 }}>Personalized Health Guidelines</p>
+          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+            BMI: <b className="num" style={{ color: "var(--txt)" }}>{s.profile.bmi}</b> (<span style={{ color: s.profile.bmiColor, fontWeight: 600 }}>{s.profile.bmiCategory}</span>)
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {s.profile.recommendations.map((tip, idx) => (
+            <div key={idx} style={{ background: "var(--ink)", padding: "12px 15px", borderRadius: 12, border: "1px solid var(--line)" }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "var(--txt)", marginBottom: 4 }}>{tip.category}</div>
+              <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>{tip.text}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
     <div className="grid" style={{ gridTemplateColumns: "repeat(4,1fr)", marginTop: 18 }}>
       <Stat icon="⚡" value={s.xp} label="Total XP" bg="rgba(214,148,18,.14)" fg="var(--gold)" />
       <Stat icon="✅" value={s.totalQuests} label="Quests done" bg="rgba(11,165,114,.14)" fg="var(--vital)" />
@@ -489,27 +627,45 @@ function LeaderboardPage({ meName }) {
 function ProfilePage({ s, onLogout }) {
   const p = s.profile || {};
   const goal = GOALS.find((g) => g.id === p.goal);
+  const condStr = p.conditions && p.conditions.length > 0
+    ? p.conditions.map(c => c === "hypertension" ? "BP" : c.charAt(0).toUpperCase() + c.slice(1).replace("_", " ")).join(", ")
+    : "None";
   const rows = [
     ["Name", p.name || "—"], ["Age", p.age ? p.age + " yrs" : "—"],
     ["Height", p.heightCm ? p.heightCm + " cm" : "—"], ["Weight", p.weightKg ? p.weightKg + " kg" : "—"],
-    ["BMI", p.bmi ?? "—"], ["Main goal", goal ? `${goal.emoji} ${goal.label}` : "—"],
+    ["BMI", p.bmi ?? "—"], ["Conditions", condStr], ["Main goal", goal ? `${goal.emoji} ${goal.label}` : "—"],
   ];
   return (<>
     <div className="topbar"><div className="hello"><h1>Your profile</h1><p>Everything Vitala uses to tailor your journey.</p></div></div>
     <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-      <div className="card pad">
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, display: "grid", placeItems: "center", fontSize: 28, background: "linear-gradient(150deg,var(--vital),var(--azure))", color: "#062b1f", fontWeight: 700 }}>
-            {(p.name || s.username).charAt(0).toUpperCase()}
+      <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
+        <div className="card pad">
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, display: "grid", placeItems: "center", fontSize: 28, background: "linear-gradient(150deg,var(--vital),var(--azure))", color: "#062b1f", fontWeight: 700 }}>
+              {(p.name || s.username).charAt(0).toUpperCase()}
+            </div>
+            <div><div className="display" style={{ fontSize: 20, fontWeight: 600 }}>{p.name || s.username}</div>
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>Level {s.level} · {s.xp} XP</div></div>
           </div>
-          <div><div className="display" style={{ fontSize: 20, fontWeight: 600 }}>{p.name || s.username}</div>
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>Level {s.level} · {s.xp} XP</div></div>
+          {rows.map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderBottom: "1px solid var(--line)", fontSize: 13.5 }}>
+              <span style={{ color: "var(--muted)" }}>{k}</span><span style={{ fontWeight: 600 }} className={typeof v === "number" ? "num" : ""}>{v}</span>
+            </div>
+          ))}
         </div>
-        {rows.map(([k, v]) => (
-          <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderBottom: "1px solid var(--line)", fontSize: 13.5 }}>
-            <span style={{ color: "var(--muted)" }}>{k}</span><span style={{ fontWeight: 600 }} className={typeof v === "number" ? "num" : ""}>{v}</span>
+        {p.recommendations && p.recommendations.length > 0 && (
+          <div className="card pad" style={{ borderLeft: `4px solid ${p.bmiColor || "var(--vital)"}` }}>
+            <p className="eyebrow" style={{ marginBottom: 12 }}>Personalized Guidelines</p>
+            <div style={{ display: "grid", gap: 12 }}>
+              {p.recommendations.map((tip, idx) => (
+                <div key={idx} style={{ fontSize: 13 }}>
+                  <div style={{ fontWeight: 600, color: "var(--txt)", marginBottom: 2 }}>{tip.category}</div>
+                  <div style={{ color: "var(--muted)", lineHeight: 1.4 }}>{tip.text}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
       </div>
       <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
         <div className="card pad">

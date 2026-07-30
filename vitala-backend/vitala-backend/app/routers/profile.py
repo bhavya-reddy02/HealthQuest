@@ -30,6 +30,7 @@ def upsert_profile(
     profile.goal = body.goal
     profile.activity = body.activity
     profile.focus = body.focus
+    profile.conditions = body.conditions
     db.commit()
     db.refresh(user)
     return serialize_state(user, db)
