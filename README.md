@@ -1,100 +1,148 @@
 # HealthQuest
+Gamified health &amp; wellbeing platform with an AI health coach (RAG). React + FastAPI + PostgreSQL/Redis + LangChain + ChromaDB.
+<div align="center">
 
-A gamified health and wellbeing platform with an AI-powered health coach.
+# 🌿 HealthQuest
 
-## Technology Stack
 
-### Frontend
-- **Framework**: React 18.3.1
-- **Build Tool**: Vite 5.4.8
-- **Styling**: Custom CSS with CSS variables
-- **State Management**: React hooks
+### Level up your health.
 
-### Backend
-- **Framework**: FastAPI 0.115.0
-- **Server**: Uvicorn
-- **Database**: PostgreSQL 16
-- **Cache/Session**: Redis 7
-- **Authentication**: JWT (PyJWT)
-- **Password Hashing**: bcrypt
+A gamified health & wellbeing platform with an AI health coach that answers from a
+vetted knowledge base — built with React, FastAPI, PostgreSQL, Redis, LangChain and ChromaDB.
 
-### LLM Integration
-- **RAG Framework**: LangChain
-- **Vector Database**: ChromaDB
-- **Embeddings**: fastembed (local)
-- **LLM Providers**: 
-  - Hugging Face (default)
-  - Anthropic Claude
-  - Google Gemini
-  - Ollama (local)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)
+![Postgres](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-## Project Structure
+</div>
 
-```
-healthquest/
-├── backend/           # Python FastAPI backend
-├── frontend/          # React + Vite frontend
-├── docs/              # Documentation
-├── docker-compose.yml # Docker orchestration
-└── README.md         # This file
-```
+---
 
-## Quick Start
+## Overview
 
-### Prerequisites
-- Docker and Docker Compose
-- (Optional) Python 3.12+ for local development
+**Health** turns healthy habits into a game. Users complete **daily quests**, earn **XP**,
+build **streaks**, unlock **badges**, work through **health-literacy learning modules** with
+quizzes, and chat with an **AI health coach**. The coach uses Retrieval-Augmented Generation
+(RAG) to ground every answer in a curated wellbeing knowledge base, so it stays factual and
+on-topic instead of inventing medical advice.
 
-### Using Docker (Recommended)
+The whole stack — API, databases and vector store — runs on any laptop with one Docker command.
 
+## ✨ Features
+
+- 🔐 **Authentication** — JWT sign-up / log-in, sessions in Redis
+- 🎯 **Daily quests** — personalised to the user's focus areas, with XP rewards
+- 🔥 **Gamification** — XP & levels, streaks, badges, and a live leaderboard
+- 📚 **Health-literacy modules** — educational cards + graded quizzes that award XP
+- 🤖 **AI health coach (RAG)** — grounded, cited answers tailored to reading level
+- 🔄 **Pluggable LLM** — Google Gemini (free tier), Anthropic Claude, or local Ollama
+
+## 🧱 Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React + Vite |
+| Backend | Python + FastAPI |
+| LLM | Gemini / Claude / Ollama (switchable) |
+| RAG | LangChain |
+| Vector DB | ChromaDB |
+| Embeddings | fastembed (local ONNX, `BAAI/bge-small-en-v1.5`) |
+| Database | PostgreSQL + Redis |
+| Auth | JWT (bcrypt-hashed passwords) |
+| Deployment | Docker + Docker Compose |
+
+## 🚀 Quick start
+
+> **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop) and
+> [Node.js 18+](https://nodejs.org).
+
+**1. Clone**
 ```bash
-# Start all services
-docker compose up --build
-
-# Access the application
-# Frontend: http://localhost:5173
-# Backend API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+git clone https://github.com/<your-username>/HealthQuest.git
+cd HealthQuest
 ```
 
-### Local Development
+**2. Add an AI key** — create `backend/.env` (free option shown):
+```
+LLM_PROVIDER=gemini
+GOOGLE_API_KEY=your-key-from-aistudio.google.com
+```
 
-#### Backend
+**3. Start the backend**
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+docker compose up --build
 ```
+API -> http://localhost:8000  ·  API docs -> http://localhost:8000/docs
 
-#### Frontend
+**4. Start the frontend** (in a second terminal)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Open **http://localhost:5173**, sign up, and explore.
 
-## Features
+<details>
+<summary><b>Switch the AI provider (Claude / Ollama)</b></summary>
 
-- **Gamified Health Tracking**: Daily quests, XP system, streaks, and badges
-- **Health Coach AI**: RAG-powered assistant grounded in vetted health knowledge
-- **Learning Modules**: Educational content with quizzes
-- **Leaderboard**: Community engagement through XP rankings
-- **Personalization**: Tailored recommendations based on health profile
+In `backend/.env`:
+```
+# Claude (paid):       LLM_PROVIDER=anthropic   ANTHROPIC_API_KEY=sk-ant-...
+# Ollama (local/free): LLM_PROVIDER=ollama
+#   then: docker compose --profile ollama up  &&  docker compose exec ollama ollama pull llama3.2
+```
+Then `docker compose up -d --force-recreate api`.
+</details>
 
-## Documentation
+## 🗂️ Project structure
 
-- [Backend Documentation](backend/README.md)
-- [Phase 2: AI Assistant](docs/PHASE2-ASSISTANT.md)
-- [Phase 2: Gemini Integration](docs/PHASE2-GEMINI.md)
-- [Phase 2: Ollama Integration](docs/PHASE2-OLLAMA.md)
-- [Phase 3: Learning Features](docs/PHASE3-LEARNING.md)
+```
+HealthQuest/
+├── backend/     # FastAPI · Postgres · Redis · LangChain + ChromaDB
+│   └── app/
+│       ├── routers/    # auth, profile, quests, learn, chat, leaderboard
+│       ├── rag/        # AI coach + knowledge base
+│       ├── game_data.py, learn_data.py
+│       └── ...
+└── frontend/    # React + Vite single-page app
+    └── src/App.jsx
+```
 
-## Environment Variables
+## 🧭 Using the app
 
-See `.env.example` in the backend directory for required environment variables.
+**Home** dashboard · **Quests** · **Learn** (modules & quizzes) · **Coach** (AI assistant) ·
+**Badges** · **Ranks** (leaderboard) · **Profile**.
 
-## License
+To make the coach answer about a specific hospital, edit
+`backend/app/rag/knowledge/hospital-info.md`, then
+`docker compose exec api python -m app.rag.ingest --reset`.
 
-This project is for educational purposes.
+## 🛟 Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `no configuration file provided` | `cd backend` before `docker compose ...` |
+| Frontend "Can't reach the server" | Start the backend first; check `/docs` loads |
+| Coach "not switched on yet" | `.env` key missing -> recreate it, then `docker compose up -d --force-recreate api` |
+| Gemini `ResourceExhausted` | Free-tier limit — wait a minute; or use `GEMINI_MODEL=gemini-1.5-flash` |
+| Claude `credit balance is too low` | Add credit (console.anthropic.com) or switch to Gemini |
+| View logs | `docker compose logs --tail 40 api` |
+
+## 🔒 Security
+
+Your `.env` (with the API key) is git-ignored and never committed — only `.env.example`
+with placeholders is. If a key is exposed, revoke it and generate a new one.
+
+## 📄 License
+
+Released under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+Built as an MSc dissertation project. HealthQuest provides general wellbeing information, not medical advice.
+</div>
